@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Grover's Algorithm — Interactive Simulation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { width: 100%; min-height: 100vh; }
+    body { background: #0a0a0f; }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useCallback, useMemo, useEffect, useRef } = React;
+
+    const FONT_MONO = "'Courier New', monospace";
+
+    function hadamardN(n) {
+      const size = 1 << n;
+      return new Array(size).fill(1 / Math.sqrt(size));
+    }
+
+    function applyOracle(state, target) {
+      const next = [...state];
+      next[target] = -next[target];
+      return next;
+    }
+
+    function applyDiffusion(state) {
+      const n = state.length;
+      const mean = state.reduce((a, b) => a + b, 0) / n;
+      return state.map((v) => 2 * mean - v);
+    }
+
+    function optimalIterations(n) {
+      return Math.max(1, Math.round((Math.PI / 4) * Math.sqrt(1 << n)));
+    }
+
+    const COLORS = {
+      bg: "#0a0a0f",
+      surface: "#12121a",
+      border: "#1e1e2e",
+      accent: "#6ee7b7",
+      accentDim: "#2d6a4f",
+      target: "#f472b6",
+      targetDim: "#8b2252",
+      text: "#e0e0e8",
+      textDim: "#6b6b80",
+      barPos: "#6ee7b7",
+      barNeg: "#f472b6",
+      grid: "#1a1a28",
+    };
+
+    const controlBox = {
+      background: COLORS.surface,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 8,
+      padding: "10px 14px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 6,
+      alignItems: "center",
+    };
+
+    const labelStyle = {
+      fontSize: 9,
+      color: COLORS.textDim,
+      textTransform: "uppercase",
+      letterSpacing: "0.1em",
+    };
+
+    const pillBtn = {
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 6,
+      padding: "4px 12px",
+      cursor: "pointer",
+      fontFamily: FONT_MONO,
+      fontSize: 13,
+      transition: "all 0.15s",
+    };
+
+    const arrowBtn = {
+      background: COLORS.surface,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 6,
+      padding: "4px 10px",
+      cursor: "pointer",
+      color: COLORS.text,
+      fontFamily: FONT_MONO,
+      fontSize: 14,
+    };
+
+    const actionBtn = {
+      background: COLORS.surface,
+      border: `1px solid ${COLORS.border}`,
+      borderRadius: 8,
+      padding: "8px 16px",
+      cursor: "pointer",
+      color: COLORS.text,
+      fontFamily: FONT_MONO,
+      fontSize: 12,
+      fontWeight: 600,
+      transition: "all 0.15s",
+    };
+
+    function GroversSimulation() {
+      const [nQubits, setNQubits] = useState(3);
+      const [targetIdx, setTargetIdx] = useState(5);
+      const [currentStep, setCurrentStep] = useState(0);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [speed, setSpeed] = useState(800);
+      const timerRef = useRef(null);
+
+      const totalStates = 1 << nQubits;
+      const optimal = optimalIterations(nQubits);
+
+      const history = useMemo(() => {
+        const steps = [];
+        let state = hadamardN(nQubits);
+        steps.push({ state: [...state], label: "H\u2297\u207F|0\u27E9\u207F \u2014 Uniform superposition" });
+
+        for (let i = 0; i < optimal + 2; i++) {
+          state = applyOracle(state, targetIdx % totalStates);
+          steps.push({ state: [...state], label: `Iteration ${i + 1}: Oracle U\u03C9` });
+          state = applyDiffusion(state);
+          steps.push({ state: [...state], label: `Iteration ${i + 1}: Diffusion 2|\u03C8\u27E9\u27E8\u03C8|\u2212I` });
+        }
+        return steps;
+      }, [nQubits, targetIdx, totalStates, optimal]);
+
+      const maxStep = history.length - 1;
+      const clampedStep = Math.min(currentStep, maxStep);
+      const currentState = history[clampedStep].state;
+      const currentLabel = history[clampedStep].label;
+
+      const probs = currentState.map((a) => a * a);
+      const targetProb = probs[targetIdx % totalStates];
+      const maxAmp = Math.max(...currentState.map(Math.abs));
+
+      useEffect(() => {
+        if (isPlaying) {
+          timerRef.current = setInterval(() => {
+            setCurrentStep((s) => {
+              if (s >= maxStep) {
+                setIsPlaying(false);
+                return s;
+              }
+              return s + 1;
+            });
+          }, speed);
+        }
+        return () => clearInterval(timerRef.current);
+      }, [isPlaying, speed, maxStep]);
+
+      const reset = useCallback(() => {
+        setIsPlaying(false);
+        setCurrentStep(0);
+      }, []);
+
+      const iterationNumber = Math.floor((clampedStep + 1) / 2);
+
+      return (
+        <div style={{
+          background: COLORS.bg,
+          color: COLORS.text,
+          fontFamily: FONT_MONO,
+          minHeight: "100vh",
+          padding: "24px 20px",
+          boxSizing: "border-box",
+        }}>
+          {/* Header */}
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <h1 style={{
+              fontSize: 22,
+              fontWeight: 700,
+              color: COLORS.accent,
+              letterSpacing: "0.12em",
+              margin: 0,
+              textTransform: "uppercase",
+            }}>
+              &#x27E8; Grover's Algorithm &#x27E9;
+            </h1>
+            <div style={{ fontSize: 11, color: COLORS.textDim, marginTop: 4 }}>
+              Quantum search in O(\u221AN) &mdash; interactive simulation
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 16,
+            justifyContent: "center",
+            marginBottom: 24,
+          }}>
+            {/* Qubits */}
+            <div style={controlBox}>
+              <label style={labelStyle}>Qubits (n)</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[2, 3, 4, 5].map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => { setNQubits(q); setTargetIdx((prev) => prev % (1 << q)); reset(); }}
+                    style={{
+                      ...pillBtn,
+                      background: nQubits === q ? COLORS.accent : COLORS.surface,
+                      color: nQubits === q ? COLORS.bg : COLORS.textDim,
+                      fontWeight: nQubits === q ? 700 : 400,
+                    }}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Target */}
+            <div style={controlBox}>
+              <label style={labelStyle}>Target |\u03C9&#x27E9;</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button style={arrowBtn} onClick={() => { setTargetIdx((t) => (t - 1 + totalStates) % totalStates); reset(); }}>&#x25C2;</button>
+                <span style={{
+                  color: COLORS.target,
+                  fontWeight: 700,
+                  fontSize: 16,
+                  minWidth: 40,
+                  textAlign: "center",
+                }}>
+                  |{(targetIdx % totalStates).toString(2).padStart(nQubits, "0")}&#x27E9;
+                </span>
+                <button style={arrowBtn} onClick={() => { setTargetIdx((t) => (t + 1) % totalStates); reset(); }}>&#x25B8;</button>
+              </div>
+            </div>
+
+            {/* Speed */}
+            <div style={controlBox}>
+              <label style={labelStyle}>Speed</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[{ l: "\u25B8", v: 1000 }, { l: "\u25B8\u25B8", v: 500 }, { l: "\u25B8\u25B8\u25B8", v: 200 }].map((s) => (
+                  <button
+                    key={s.v}
+                    onClick={() => setSpeed(s.v)}
+                    style={{
+                      ...pillBtn,
+                      background: speed === s.v ? COLORS.accentDim : COLORS.surface,
+                      color: speed === s.v ? COLORS.accent : COLORS.textDim,
+                      fontSize: 10,
+                    }}
+                  >
+                    {s.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Playback */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+            <button
+              onClick={() => setCurrentStep((s) => Math.max(0, s - 1))}
+              disabled={clampedStep === 0}
+              style={{ ...actionBtn, opacity: clampedStep === 0 ? 0.3 : 1 }}
+            >
+              &#x27E8; Prev
+            </button>
+            <button
+              onClick={() => setIsPlaying((p) => !p)}
+              style={{ ...actionBtn, background: isPlaying ? COLORS.targetDim : COLORS.accentDim, minWidth: 100 }}
+            >
+              {isPlaying ? "\u23F8 Pause" : "\u25B6 Play"}
+            </button>
+            <button
+              onClick={() => setCurrentStep((s) => Math.min(maxStep, s + 1))}
+              disabled={clampedStep >= maxStep}
+              style={{ ...actionBtn, opacity: clampedStep >= maxStep ? 0.3 : 1 }}
+            >
+              Next &#x27E9;
+            </button>
+            <button onClick={reset} style={{ ...actionBtn, background: "#1a1a28" }}>
+              &#x21BA; Reset
+            </button>
+          </div>
+
+          {/* Status bar */}
+          <div style={{
+            textAlign: "center",
+            marginBottom: 20,
+            padding: "10px 16px",
+            background: COLORS.surface,
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 8,
+            maxWidth: 600,
+            margin: "0 auto 20px",
+          }}>
+            <div style={{ fontSize: 13, color: COLORS.accent, fontWeight: 600 }}>
+              {currentLabel}
+            </div>
+            <div style={{ fontSize: 11, color: COLORS.textDim, marginTop: 4 }}>
+              Step {clampedStep}/{maxStep} &middot; Iteration {iterationNumber}/{optimal} (optimal) &middot; P(target) = {(targetProb * 100).toFixed(1)}%
+            </div>
+          </div>
+
+          {/* Amplitude chart */}
+          <div style={{
+            background: COLORS.surface,
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 10,
+            padding: "20px 16px 12px",
+            maxWidth: 700,
+            margin: "0 auto 20px",
+            overflow: "hidden",
+          }}>
+            <div style={{ fontSize: 11, color: COLORS.textDim, marginBottom: 12, textAlign: "center" }}>
+              Amplitudes &alpha;<sub>x</sub> &mdash; bar height = amplitude, opacity = probability |&alpha;|&sup2;
+            </div>
+            <div style={{ position: "relative", height: 200 }}>
+              <div style={{
+                position: "absolute",
+                top: "50%",
+                left: 0,
+                right: 0,
+                height: 1,
+                background: COLORS.grid,
+              }} />
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                height: "100%",
+                gap: totalStates > 16 ? 1 : 2,
+                padding: "0 4px",
+              }}>
+                {currentState.map((amp, i) => {
+                  const isTarget = i === (targetIdx % totalStates);
+                  const h = maxAmp > 0 ? (Math.abs(amp) / maxAmp) * 90 : 0;
+                  const prob = amp * amp;
+                  const positive = amp >= 0;
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        position: "relative",
+                      }}
+                    >
+                      <div style={{
+                        width: "100%",
+                        maxWidth: totalStates <= 8 ? 40 : totalStates <= 16 ? 20 : 12,
+                        height: `${h}%`,
+                        background: isTarget ? COLORS.target : (positive ? COLORS.barPos : COLORS.barNeg),
+                        opacity: 0.3 + prob * 2.5,
+                        borderRadius: 2,
+                        position: "absolute",
+                        [positive ? "bottom" : "top"]: "50%",
+                        transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+                        boxShadow: isTarget && prob > 0.3
+                          ? `0 0 12px ${COLORS.target}66`
+                          : prob > 0.3
+                          ? `0 0 8px ${COLORS.accent}44`
+                          : "none",
+                      }} />
+                      {totalStates <= 16 && (
+                        <div style={{
+                          position: "absolute",
+                          bottom: -2,
+                          fontSize: totalStates <= 8 ? 9 : 7,
+                          color: isTarget ? COLORS.target : COLORS.textDim,
+                          fontWeight: isTarget ? 700 : 400,
+                          transform: "translateY(100%)",
+                        }}>
+                          |{i.toString(2).padStart(nQubits, "0")}&#x27E9;
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Probability meter */}
+          <div style={{
+            maxWidth: 700,
+            margin: "0 auto 20px",
+            background: COLORS.surface,
+            border: `1px solid ${COLORS.border}`,
+            borderRadius: 10,
+            padding: "14px 16px",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 6 }}>
+              <span style={{ color: COLORS.textDim }}>P(|\u03C9&#x27E9;) measurement probability</span>
+              <span style={{ color: COLORS.target, fontWeight: 700 }}>{(targetProb * 100).toFixed(2)}%</span>
+            </div>
+            <div style={{
+              height: 10,
+              background: COLORS.grid,
+              borderRadius: 5,
+              overflow: "hidden",
+              position: "relative",
+            }}>
+              <div style={{
+                height: "100%",
+                width: `${targetProb * 100}%`,
+                background: `linear-gradient(90deg, ${COLORS.targetDim}, ${COLORS.target})`,
+                borderRadius: 5,
+                transition: "width 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
+                boxShadow: targetProb > 0.5 ? `0 0 12px ${COLORS.target}88` : "none",
+              }} />
+            </div>
+          </div>
+
+          {/* Info panel */}
+          <div style={{
+            maxWidth: 700,
+            margin: "0 auto",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            gap: 10,
+          }}>
+            {[
+              { label: "Search Space", value: `N = ${totalStates}`, sub: `2^${nQubits} states` },
+              { label: "Optimal Iterations", value: `\u230A\u03C0/4\u00B7\u221A${totalStates}\u230B = ${optimal}`, sub: "O(\u221AN)" },
+              { label: "Classical Comparison", value: `~${totalStates / 2}`, sub: "O(N) avg queries" },
+            ].map((item, i) => (
+              <div key={i} style={{
+                background: COLORS.surface,
+                border: `1px solid ${COLORS.border}`,
+                borderRadius: 8,
+                padding: "10px 12px",
+                textAlign: "center",
+              }}>
+                <div style={{ fontSize: 9, color: COLORS.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize: 15, color: COLORS.accent, fontWeight: 700, margin: "4px 0 2px" }}>
+                  {item.value}
+                </div>
+                <div style={{ fontSize: 9, color: COLORS.textDim }}>{item.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Legend */}
+          <div style={{
+            maxWidth: 700,
+            margin: "16px auto 0",
+            fontSize: 10,
+            color: COLORS.textDim,
+            textAlign: "center",
+            lineHeight: 1.6,
+          }}>
+            <span style={{ color: COLORS.accent }}>&&#x25A0;</span> positive amplitude{" "}
+            <span style={{ color: COLORS.barNeg }}>&&#x25A0;</span> negative amplitude{" "}
+            <span style={{ color: COLORS.target }}>&&#x25A0;</span> target state |\u03C9&#x27E9;
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(<GroversSimulation />);
+  </script>
+</body>
+</html>
