@@ -1,473 +1,1213 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grover's Algorithm — Interactive Simulation</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body, #root { width: 100%; min-height: 100vh; }
-    body { background: #0a0a0f; }
-  </style>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Algorithm Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050810;
+  --surface: #0b0f1e;
+  --card: #111827;
+  --border: #1e2d4a;
+  --g-accent: #00e5ff;
+  --g-dim: #0097a7;
+  --s-accent: #ff6b6b;
+  --s-dim: #c62828;
+  --gold: #ffd54f;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --faint: #1a2340;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Starfield background */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 15%, rgba(0,229,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 25% 60%, rgba(255,255,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 40% 30%, rgba(255,107,107,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 60% 80%, rgba(0,229,255,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 75% 20%, rgba(255,255,255,0.4) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 55%, rgba(255,107,107,0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 85%, rgba(0,229,255,0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 15% 88%, rgba(255,255,255,0.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 50% 5%, rgba(255,213,79,0.4) 0%, transparent 100%),
+    radial-gradient(ellipse 50% 30% at 50% 0%, rgba(0,229,255,0.04) 0%, transparent 100%),
+    radial-gradient(ellipse 40% 20% at 80% 100%, rgba(255,107,107,0.04) 0%, transparent 100%);
+  pointer-events: none; z-index: 0;
+}
+
+/* Grid lines */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.025) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none; z-index: 0;
+}
+
+.wrap {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 40px 20px 100px;
+  position: relative; z-index: 1;
+}
+
+/* HEADER */
+header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.eyebrow {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 6px;
+  color: var(--g-accent);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  opacity: 0.8;
+}
+
+h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2.8rem, 8vw, 5.5rem);
+  letter-spacing: 4px;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--g-accent) 0%, #fff 45%, var(--s-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 1px;
+}
+
+/* TABS */
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 32px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.tab {
+  flex: 1;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.tab::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background 0.3s;
+}
+
+.tab.g-active {
+  color: var(--g-accent);
+  background: rgba(0,229,255,0.05);
+}
+.tab.g-active::after { background: var(--g-accent); }
+
+.tab.s-active {
+  color: var(--s-accent);
+  background: rgba(255,107,107,0.05);
+}
+.tab.s-active::after { background: var(--s-accent); }
+
+/* PANELS */
+.panel { display: none; }
+.panel.active { display: block; animation: fadeIn 0.3s ease; }
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* CARD */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.g .card-title { color: var(--g-accent); }
+.s .card-title { color: var(--s-accent); }
+
+/* CONTROLS */
+.controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.label {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.pill {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.pill:hover { border-color: var(--g-accent); color: var(--g-accent); }
+.pill.g-on { border-color: var(--g-accent); color: var(--g-accent); background: rgba(0,229,255,0.08); }
+.pill.s-on { border-color: var(--s-accent); color: var(--s-accent); background: rgba(255,107,107,0.08); }
+
+/* STEP TRACK */
+.step-track {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.step-track::-webkit-scrollbar { display: none; }
+
+.step-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-width: 60px;
+  cursor: pointer;
+  position: relative;
+}
+
+.step-node::before {
+  content: '';
+  position: absolute;
+  top: 13px; left: -50%; right: 50%;
+  height: 2px;
+  background: var(--border);
+}
+.step-node:first-child::before { display: none; }
+
+.step-dot {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  z-index: 1;
+  transition: all 0.3s;
+}
+
+.step-node.done .step-dot { border-color: var(--g-dim); color: var(--g-dim); }
+.step-node.done.s .step-dot { border-color: var(--s-dim); color: var(--s-dim); }
+.step-node.current .step-dot {
+  border-color: var(--g-accent);
+  background: rgba(0,229,255,0.15);
+  color: var(--g-accent);
+  box-shadow: 0 0 12px rgba(0,229,255,0.4);
+}
+.step-node.current.s .step-dot {
+  border-color: var(--s-accent);
+  background: rgba(255,107,107,0.15);
+  color: var(--s-accent);
+  box-shadow: 0 0 12px rgba(255,107,107,0.4);
+}
+
+.step-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 5px;
+  text-align: center;
+  white-space: nowrap;
+}
+.step-node.current .step-label { color: var(--g-accent); }
+.step-node.current.s .step-label { color: var(--s-accent); }
+
+/* AMPLITUDE BARS */
+.bars-grid {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 180px;
+  padding: 0 4px;
+  margin-bottom: 12px;
+}
+
+.bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.bar-fill {
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  min-height: 2px;
+}
+
+.bar-fill.target { box-shadow: 0 0 12px rgba(0,229,255,0.5); }
+.bar-fill.s-bar { box-shadow: 0 0 12px rgba(255,107,107,0.5); }
+.bar-fill.target.s-bar { box-shadow: 0 0 16px rgba(255,213,79,0.7); }
+
+.bar-pct {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  text-align: center;
+  min-height: 14px;
+}
+
+.bar-lbl {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  writing-mode: initial;
+  text-align: center;
+}
+
+/* DESC BOX */
+.desc-box {
+  background: var(--faint);
+  border-left: 3px solid var(--g-accent);
+  border-radius: 0 8px 8px 0;
+  padding: 14px 16px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 20px;
+  min-height: 60px;
+}
+.desc-box.s-box { border-left-color: var(--s-accent); }
+
+/* BUTTONS */
+.btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-g { border-color: var(--g-accent); color: var(--g-accent); background: rgba(0,229,255,0.06); }
+.btn-g:hover { background: rgba(0,229,255,0.15); }
+.btn-s { border-color: var(--s-accent); color: var(--s-accent); background: rgba(255,107,107,0.06); }
+.btn-s:hover { background: rgba(255,107,107,0.15); }
+.btn-ghost { border-color: var(--border); color: var(--muted); background: transparent; }
+.btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+
+/* STATS ROW */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat {
+  background: var(--faint);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  text-align: center;
+}
+
+.stat-val {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.8rem;
+  letter-spacing: 2px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-val.g { color: var(--g-accent); }
+.stat-val.s { color: var(--s-accent); }
+.stat-val.gold { color: var(--gold); }
+
+.stat-lbl {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+
+/* SHOR TABLE */
+.shor-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+.shor-table th {
+  background: var(--faint);
+  color: var(--muted);
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.shor-table td {
+  padding: 7px 12px;
+  border-bottom: 1px solid rgba(30,45,74,0.5);
+  color: var(--text);
+}
+.shor-table tr.highlighted td { background: rgba(255,107,107,0.08); }
+.shor-table td.accent-s { color: var(--s-accent); font-weight: 500; }
+.shor-table td.accent-g { color: var(--gold); }
+
+/* CIRCUIT DISPLAY */
+.circuit {
+  background: var(--faint);
+  border-radius: 10px;
+  padding: 16px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+.circuit-svg { display: block; margin: 0 auto; }
+
+/* HOWIT WORKS */
+.how-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.how-item {
+  background: var(--faint);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.how-num {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.how-num.g { color: var(--g-accent); }
+.how-num.s { color: var(--s-accent); }
+
+.how-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.how-desc {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* HINT */
+.hint-box {
+  background: rgba(255,213,79,0.06);
+  border: 1px solid rgba(255,213,79,0.2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--gold);
+  margin-top: 12px;
+  display: none;
+}
+.hint-box.show { display: block; }
+
+/* RESULT BADGE */
+.result-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+.badge-g { background: rgba(0,229,255,0.12); color: var(--g-accent); border: 1px solid rgba(0,229,255,0.3); }
+.badge-s { background: rgba(255,107,107,0.12); color: var(--s-accent); border: 1px solid rgba(255,107,107,0.3); }
+.badge-gold { background: rgba(255,213,79,0.12); color: var(--gold); border: 1px solid rgba(255,213,79,0.3); }
+
+footer {
+  text-align: center;
+  margin-top: 60px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 2px;
+}
+</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script type="text/babel">
-    const { useState, useCallback, useMemo, useEffect, useRef } = React;
+<div class="wrap">
 
-    const FONT_MONO = "'Courier New', monospace";
+<header>
+  <div class="eyebrow">Interactive Quantum Computing</div>
+  <h1>QUANTUM SIMULATOR</h1>
+  <div class="subtitle">grover's search &nbsp;//&nbsp; shor's factoring</div>
+</header>
 
-    function hadamardN(n) {
-      const size = 1 << n;
-      return new Array(size).fill(1 / Math.sqrt(size));
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab g-active" id="tab-g" onclick="switchTab('g')">⟨ψ| GROVER'S SEARCH |ψ⟩</button>
+  <button class="tab" id="tab-s" onclick="switchTab('s')">⟨ψ| SHOR'S FACTORING |ψ⟩</button>
+</div>
+
+<!-- ===== GROVER PANEL ===== -->
+<div class="panel active g" id="panel-g">
+
+  <div class="card">
+    <div class="card-title">Configuration</div>
+    <div class="controls">
+      <span class="label">QUBITS:</span>
+      <button class="pill" id="gq2" onclick="gSetQ(2)">2q (4 states)</button>
+      <button class="pill g-on" id="gq3" onclick="gSetQ(3)">3q (8 states)</button>
+      <button class="pill" id="gq4" onclick="gSetQ(4)">4q (16 states)</button>
+      <button class="pill" id="gq5" onclick="gSetQ(5)">5q (32 states)</button>
+    </div>
+    <div class="controls" id="g-target-row">
+      <span class="label">TARGET:</span>
+      <!-- filled by JS -->
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row" id="g-stats"></div>
+
+  <!-- Step track -->
+  <div class="card">
+    <div class="card-title">Algorithm Steps</div>
+    <div class="step-track" id="g-steps"></div>
+
+    <!-- Bars -->
+    <div class="bars-grid" id="g-bars"></div>
+    <div style="display:flex; justify-content:space-between; font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); padding: 0 4px; margin-bottom: 12px;">
+      <span>|state⟩</span>
+      <span>probability amplitude</span>
+    </div>
+
+    <!-- Desc -->
+    <div class="desc-box" id="g-desc"></div>
+
+    <!-- Buttons -->
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="gReset()">↺ Reset</button>
+      <button class="btn btn-g" onclick="gPrev()">← Prev</button>
+      <button class="btn btn-g" onclick="gNext()">Next →</button>
+      <button class="btn btn-g" onclick="gRunAll()">▶ Run All</button>
+    </div>
+    <div class="hint-box" id="g-hint"></div>
+  </div>
+
+  <!-- Circuit diagram -->
+  <div class="card">
+    <div class="card-title">Circuit Diagram</div>
+    <div class="circuit" id="g-circuit"></div>
+  </div>
+
+  <!-- How it works -->
+  <div class="card">
+    <div class="card-title">How Grover's Works</div>
+    <div class="how-grid">
+      <div class="how-item">
+        <div class="how-num g">01</div>
+        <div class="how-title">Superposition</div>
+        <div class="how-desc">Apply Hadamard to all qubits → equal probability across all 2ⁿ states.</div>
+      </div>
+      <div class="how-item">
+        <div class="how-num g">02</div>
+        <div class="how-title">Oracle</div>
+        <div class="how-desc">Flip the phase of the target state. Probabilities unchanged — information encoded in phase.</div>
+      </div>
+      <div class="how-item">
+        <div class="how-num g">03</div>
+        <div class="how-title">Diffusion</div>
+        <div class="how-desc">Reflect amplitudes about their mean (inversion about average). Target amplitude grows each iteration.</div>
+      </div>
+      <div class="how-item">
+        <div class="how-num g">04</div>
+        <div class="how-title">Measure</div>
+        <div class="how-desc">After O(√N) iterations, the target state has near-100% probability. Classical: O(N).</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SHOR PANEL ===== -->
+<div class="panel s" id="panel-s">
+
+  <div class="card">
+    <div class="card-title">Configuration</div>
+    <div class="controls">
+      <span class="label">FACTOR N:</span>
+      <button class="pill s-on" id="sn15" onclick="sSetN(15)">N = 15</button>
+      <button class="pill" id="sn21" onclick="sSetN(21)">N = 21</button>
+      <button class="pill" id="sn33" onclick="sSetN(33)">N = 33</button>
+      <button class="pill" id="sn35" onclick="sSetN(35)">N = 35</button>
+      <button class="pill" id="sn77" onclick="sSetN(77)">N = 77</button>
+    </div>
+    <div class="controls" id="s-a-row">
+      <span class="label">BASE a:</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row" id="s-stats"></div>
+
+  <!-- Step track -->
+  <div class="card">
+    <div class="card-title">Algorithm Steps</div>
+    <div class="step-track" id="s-steps"></div>
+
+    <!-- Main content area -->
+    <div id="s-content"></div>
+
+    <!-- Desc -->
+    <div class="desc-box s-box" id="s-desc"></div>
+
+    <!-- Buttons -->
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="sReset()">↺ Reset</button>
+      <button class="btn btn-s" onclick="sPrev()">← Prev</button>
+      <button class="btn btn-s" onclick="sNext()">Next →</button>
+      <button class="btn btn-s" onclick="sRunAll()">▶ Run All</button>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="card">
+    <div class="card-title">How Shor's Works</div>
+    <div class="how-grid">
+      <div class="how-item">
+        <div class="how-num s">01</div>
+        <div class="how-title">Pick Base a</div>
+        <div class="how-desc">Choose random a coprime to N. If gcd(a,N)≠1, you've already found a factor!</div>
+      </div>
+      <div class="how-item">
+        <div class="how-num s">02</div>
+        <div class="how-title">Quantum Period Finding</div>
+        <div class="how-desc">QFT finds the period r of f(x) = aˣ mod N — exponentially faster than classical.</div>
+      </div>
+      <div class="how-item">
+        <div class="how-num s">03</div>
+        <div class="how-title">Extract Factors</div>
+        <div class="how-desc">If r is even: compute gcd(aʳ/² ± 1, N) to get non-trivial factors.</div>
+      </div>
+      <div class="how-item">
+        <div class="how-num s">04</div>
+        <div class="how-title">Speedup</div>
+        <div class="how-desc">Classical: O(e^(n^1/3)). Quantum: O(n³). Breaks RSA encryption at scale.</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end shor panel -->
+
+<footer>QUANTUM ALGORITHM SIMULATOR &nbsp;•&nbsp; EDUCATIONAL DEMONSTRATION &nbsp;•&nbsp; GROVER'S & SHOR'S</footer>
+
+</div><!-- end wrap -->
+
+<script>
+// ============================================================
+// UTILITIES
+// ============================================================
+function gcd(a, b) { while (b) { [a,b]=[b,a%b]; } return a; }
+const sq = Math.sqrt;
+
+// ============================================================
+// GROVER'S STATE
+// ============================================================
+let gQ = 3, gTarget = 3, gStep = 0, gRunning = false;
+
+const SHOR_DATA = {
+  15: {
+    factors: [
+      {a:2, r:4, f1:3, f2:5},
+      {a:4, r:2, f1:3, f2:5},
+      {a:7, r:4, f1:3, f2:5},
+      {a:8, r:4, f1:3, f2:5},
+      {a:11,r:4, f1:3, f2:5},
+      {a:13,r:4, f1:3, f2:5},
+    ]
+  },
+  21: {
+    factors: [
+      {a:2, r:6, f1:3, f2:7},
+      {a:4, r:3, f1:3, f2:7},
+      {a:5, r:6, f1:3, f2:7},
+      {a:8, r:2, f1:3, f2:7},
+      {a:10,r:6, f1:3, f2:7},
+    ]
+  },
+  33: {
+    factors: [
+      {a:2, r:10, f1:3, f2:11},
+      {a:4, r:5,  f1:3, f2:11},
+      {a:5, r:10, f1:3, f2:11},
+      {a:7, r:2,  f1:3, f2:11},
+      {a:10,r:10, f1:3, f2:11},
+    ]
+  },
+  35: {
+    factors: [
+      {a:2, r:12, f1:5, f2:7},
+      {a:3, r:12, f1:5, f2:7},
+      {a:4, r:6,  f1:5, f2:7},
+      {a:6, r:2,  f1:5, f2:7},
+      {a:8, r:4,  f1:5, f2:7},
+    ]
+  },
+  77: {
+    factors: [
+      {a:2,  r:30, f1:7, f2:11},
+      {a:3,  r:30, f1:7, f2:11},
+      {a:4,  r:15, f1:7, f2:11},
+      {a:6,  r:10, f1:7, f2:11},
+      {a:9,  r:5,  f1:7, f2:11},
+      {a:10, r:6,  f1:7, f2:11},
+    ]
+  }
+};
+
+let sN = 15, sAIdx = 0, sStep = 0, sRunning = false;
+
+// ============================================================
+// TAB SWITCH
+// ============================================================
+function switchTab(t) {
+  document.getElementById('tab-g').className = 'tab' + (t==='g' ? ' g-active' : '');
+  document.getElementById('tab-s').className = 'tab' + (t==='s' ? ' s-active' : '');
+  document.getElementById('panel-g').className = 'panel g' + (t==='g' ? ' active' : '');
+  document.getElementById('panel-s').className = 'panel s' + (t==='s' ? ' active' : '');
+}
+
+// ============================================================
+// GROVER'S
+// ============================================================
+function gSetQ(q) {
+  gQ = q;
+  gTarget = 0;
+  gStep = 0;
+  ['gq2','gq3','gq4','gq5'].forEach(id => {
+    document.getElementById(id).className = 'pill';
+  });
+  document.getElementById('gq'+q).className = 'pill g-on';
+  gBuildTargetRow();
+  gRender();
+}
+
+function gBuildTargetRow() {
+  const N = 1 << gQ;
+  const row = document.getElementById('g-target-row');
+  let html = '<span class="label">TARGET:</span>';
+  for (let i = 0; i < N; i++) {
+    const bin = i.toString(2).padStart(gQ, '0');
+    html += `<button class="pill${i===gTarget?' g-on':''}" onclick="gSetTarget(${i})">|${bin}⟩</button>`;
+  }
+  row.innerHTML = html;
+}
+
+function gSetTarget(t) {
+  gTarget = t;
+  gStep = 0;
+  gBuildTargetRow();
+  gRender();
+}
+
+function gBuildStepList() {
+  const N = 1 << gQ;
+  const opt = Math.max(1, Math.round(Math.PI / 4 * sq(N)));
+  const steps = [{name:'|0ⁿ⟩', phase:'init'}];
+  steps.push({name:'H⊗n', phase:'hadamard'});
+  for (let i = 1; i <= opt; i++) {
+    steps.push({name:`Oracle\n${i}`, phase:'oracle', iter:i});
+    steps.push({name:`Diffuse\n${i}`, phase:'diffuse', iter:i});
+  }
+  steps.push({name:'Measure', phase:'measure'});
+  return steps;
+}
+
+function gGetAmps(step) {
+  const N = 1 << gQ;
+  if (step === 0) {
+    const a = new Array(N).fill(0); a[0]=1; return a;
+  }
+  let a = new Array(N).fill(1/sq(N));
+  if (step === 1) return a;
+  const steps = gBuildStepList();
+  for (let s = 2; s <= step; s++) {
+    const ph = steps[s].phase;
+    if (ph === 'oracle') {
+      a[gTarget] = -a[gTarget];
+    } else if (ph === 'diffuse') {
+      const mean = a.reduce((x,v)=>x+v,0)/N;
+      a = a.map(v => 2*mean - v);
     }
+  }
+  return a;
+}
 
-    function applyOracle(state, target) {
-      const next = [...state];
-      next[target] = -next[target];
-      return next;
-    }
+const G_DESCS = {
+  init: () => `Initial state |${'0'.repeat(gQ)}⟩. All probability mass sits on the zero state — amplitude = 1.`,
+  hadamard: () => {
+    const N = 1<<gQ;
+    return `Hadamard applied to all ${gQ} qubits → equal superposition of ${N} states. Each amplitude = 1/√${N} ≈ ${(1/sq(N)).toFixed(4)}, probability = ${(100/(N)).toFixed(1)}% each.`;
+  },
+  oracle: ({iter}) => `Oracle pass ${iter}: phase flip on |${gTarget.toString(2).padStart(gQ,'0')}⟩. The target amplitude becomes negative. Probabilities still look uniform — the "tag" lives in the phase.`,
+  diffuse: ({iter}) => `Diffusion pass ${iter} (inversion about the mean): amplitudes reflected through their average. Target amplitude grows, others shrink. Probability of target ≈ ${(gGetAmps(gStep)[gTarget]**2*100).toFixed(1)}%.`,
+  measure: () => {
+    const a = gGetAmps(gStep);
+    const p = (a[gTarget]**2*100).toFixed(1);
+    const N = 1<<gQ;
+    const opt = Math.max(1, Math.round(Math.PI/4*sq(N)));
+    return `Measurement! After ${opt} Grover iteration(s), target |${gTarget.toString(2).padStart(gQ,'0')}⟩ has probability ≈ ${p}%. Classical brute-force search would need O(N) = O(${N}) queries. Grover uses O(√N) ≈ O(${opt}) iterations.`;
+  }
+};
 
-    function applyDiffusion(state) {
-      const n = state.length;
-      const mean = state.reduce((a, b) => a + b, 0) / n;
-      return state.map((v) => 2 * mean - v);
-    }
+function gRender() {
+  const steps = gBuildStepList();
+  const N = 1 << gQ;
+  const opt = Math.max(1, Math.round(Math.PI/4*sq(N)));
 
-    function optimalIterations(n) {
-      return Math.max(1, Math.round((Math.PI / 4) * Math.sqrt(1 << n)));
-    }
+  // Stats
+  const amps = gGetAmps(gStep);
+  const tProb = (amps[gTarget]**2*100).toFixed(1);
+  document.getElementById('g-stats').innerHTML = `
+    <div class="stat"><div class="stat-val g">${gQ}</div><div class="stat-lbl">QUBITS</div></div>
+    <div class="stat"><div class="stat-val g">${N}</div><div class="stat-lbl">STATES</div></div>
+    <div class="stat"><div class="stat-val gold">${opt}</div><div class="stat-lbl">ITERATIONS</div></div>
+    <div class="stat"><div class="stat-val g">${tProb}%</div><div class="stat-lbl">TARGET PROB</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--muted); font-size:1.2rem">O(√${N})</div><div class="stat-lbl">COMPLEXITY</div></div>
+  `;
 
-    const COLORS = {
-      bg: "#0a0a0f",
-      surface: "#12121a",
-      border: "#1e1e2e",
-      accent: "#6ee7b7",
-      accentDim: "#2d6a4f",
-      target: "#f472b6",
-      targetDim: "#8b2252",
-      text: "#e0e0e8",
-      textDim: "#6b6b80",
-      barPos: "#6ee7b7",
-      barNeg: "#f472b6",
-      grid: "#1a1a28",
-    };
+  // Step track
+  let trackHtml = '';
+  steps.forEach((st, i) => {
+    const cls = i < gStep ? 'done' : i === gStep ? 'current' : '';
+    const lbl = st.name.replace('\n','<br>');
+    trackHtml += `<div class="step-node ${cls}" onclick="gGoStep(${i})">
+      <div class="step-dot">${i+1}</div>
+      <div class="step-label">${lbl}</div>
+    </div>`;
+  });
+  document.getElementById('g-steps').innerHTML = trackHtml;
 
-    const controlBox = {
-      background: COLORS.surface,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 8,
-      padding: "10px 14px",
-      display: "flex",
-      flexDirection: "column",
-      gap: 6,
-      alignItems: "center",
-    };
+  // Bars
+  const maxAmp = Math.max(...amps.map(Math.abs), 0.001);
+  let barsHtml = '';
+  for (let i = 0; i < N; i++) {
+    const a = amps[i];
+    const prob = (a*a*100).toFixed(1);
+    const heightPct = Math.abs(a) / maxAmp * 85;
+    const isTarget = i === gTarget;
+    const color = a < 0 ? '#ff4444' : (isTarget ? 'var(--g-accent)' : 'rgba(0,229,255,0.4)');
+    const bin = i.toString(2).padStart(gQ,'0');
+    barsHtml += `<div class="bar-col">
+      <div class="bar-pct">${prob}%</div>
+      <div class="bar-fill${isTarget?' target':''}" style="height:${heightPct}%;background:${color};"></div>
+      <div class="bar-lbl">${gQ<=3?'|'+bin+'⟩':bin}</div>
+    </div>`;
+  }
+  document.getElementById('g-bars').innerHTML = barsHtml;
 
-    const labelStyle = {
-      fontSize: 9,
-      color: COLORS.textDim,
-      textTransform: "uppercase",
-      letterSpacing: "0.1em",
-    };
+  // Desc
+  const st = steps[gStep];
+  const descFn = G_DESCS[st.phase];
+  document.getElementById('g-desc').textContent = descFn ? descFn(st) : '';
 
-    const pillBtn = {
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 6,
-      padding: "4px 12px",
-      cursor: "pointer",
-      fontFamily: FONT_MONO,
-      fontSize: 13,
-      transition: "all 0.15s",
-    };
+  // Circuit SVG
+  drawGCircuit();
+}
 
-    const arrowBtn = {
-      background: COLORS.surface,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 6,
-      padding: "4px 10px",
-      cursor: "pointer",
-      color: COLORS.text,
-      fontFamily: FONT_MONO,
-      fontSize: 14,
-    };
+function drawGCircuit() {
+  const qubits = gQ;
+  const W = Math.min(780, window.innerWidth - 60);
+  const H = qubits * 36 + 30;
+  const leftPad = 40;
+  const colW = (W - leftPad - 20) / (gQ + 3);
 
-    const actionBtn = {
-      background: COLORS.surface,
-      border: `1px solid ${COLORS.border}`,
-      borderRadius: 8,
-      padding: "8px 16px",
-      cursor: "pointer",
-      color: COLORS.text,
-      fontFamily: FONT_MONO,
-      fontSize: 12,
-      fontWeight: 600,
-      transition: "all 0.15s",
-    };
+  let svg = `<svg class="circuit-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <style>.ql{font-family:'DM Mono',monospace;font-size:11px;fill:#64748b}.gate{font-family:'DM Mono',monospace;font-size:10px;fill:#0b0f1e}</style>`;
 
-    function GroversSimulation() {
-      const [nQubits, setNQubits] = useState(3);
-      const [targetIdx, setTargetIdx] = useState(5);
-      const [currentStep, setCurrentStep] = useState(0);
-      const [isPlaying, setIsPlaying] = useState(false);
-      const [speed, setSpeed] = useState(800);
-      const timerRef = useRef(null);
+  // Wire lines
+  for (let q = 0; q < qubits; q++) {
+    const y = 20 + q * 36;
+    svg += `<line x1="${leftPad}" y1="${y}" x2="${W-10}" y2="${y}" stroke="#1e2d4a" stroke-width="1.5"/>`;
+    svg += `<text x="4" y="${y+4}" class="ql">q${q}</text>`;
+  }
 
-      const totalStates = 1 << nQubits;
-      const optimal = optimalIterations(nQubits);
+  // Gates
+  const gateColor = '#00e5ff';
+  let col = 0;
 
-      const history = useMemo(() => {
-        const steps = [];
-        let state = hadamardN(nQubits);
-        steps.push({ state: [...state], label: "H\u2297\u207F|0\u27E9\u207F \u2014 Uniform superposition" });
+  // H gates
+  for (let q = 0; q < qubits; q++) {
+    const y = 20 + q * 36;
+    const x = leftPad + colW * (col+0.5);
+    svg += `<rect x="${x-12}" y="${y-12}" width="24" height="22" rx="4" fill="${gateColor}" opacity="0.2" stroke="${gateColor}" stroke-width="1"/>`;
+    svg += `<text x="${x}" y="${y+4}" text-anchor="middle" class="gate" fill="${gateColor}">H</text>`;
+  }
+  col++;
 
-        for (let i = 0; i < optimal + 2; i++) {
-          state = applyOracle(state, targetIdx % totalStates);
-          steps.push({ state: [...state], label: `Iteration ${i + 1}: Oracle U\u03C9` });
-          state = applyDiffusion(state);
-          steps.push({ state: [...state], label: `Iteration ${i + 1}: Diffusion 2|\u03C8\u27E9\u27E8\u03C8|\u2212I` });
-        }
-        return steps;
-      }, [nQubits, targetIdx, totalStates, optimal]);
+  // Grover iterations (simplified visual)
+  const N = 1<<gQ;
+  const opt = Math.max(1, Math.round(Math.PI/4*sq(N)));
+  for (let it = 0; it < Math.min(opt,2); it++) {
+    const xO = leftPad + colW*(col+0.5);
+    // Oracle box spanning all qubits
+    const y0 = 20, y1 = 20 + (qubits-1)*36;
+    svg += `<rect x="${xO-18}" y="${y0-12}" width="36" height="${y1-y0+24}" rx="6" fill="rgba(255,107,107,0.15)" stroke="#ff6b6b" stroke-width="1"/>`;
+    svg += `<text x="${xO}" y="${(y0+y1)/2+4}" text-anchor="middle" style="font-family:'DM Mono',monospace;font-size:10px;fill:#ff6b6b">Uf</text>`;
+    col++;
+    const xD = leftPad + colW*(col+0.5);
+    svg += `<rect x="${xD-18}" y="${y0-12}" width="36" height="${y1-y0+24}" rx="6" fill="rgba(0,229,255,0.1)" stroke="${gateColor}" stroke-width="1" stroke-dasharray="3,2"/>`;
+    svg += `<text x="${xD}" y="${(y0+y1)/2+4}" text-anchor="middle" style="font-family:'DM Mono',monospace;font-size:10px;fill:${gateColor}">Ds</text>`;
+    col++;
+  }
+  if (opt > 2) {
+    const xM = leftPad + colW*(col+0.2);
+    const ymid = 20 + (qubits-1)*18;
+    svg += `<text x="${xM}" y="${ymid+4}" style="font-family:'DM Mono',monospace;font-size:12px;fill:#64748b">···</text>`;
+    col++;
+  }
 
-      const maxStep = history.length - 1;
-      const clampedStep = Math.min(currentStep, maxStep);
-      const currentState = history[clampedStep].state;
-      const currentLabel = history[clampedStep].label;
+  // Measure
+  for (let q = 0; q < qubits; q++) {
+    const y = 20 + q * 36;
+    const x = leftPad + colW*(col+0.5);
+    svg += `<rect x="${x-14}" y="${y-12}" width="28" height="22" rx="4" fill="rgba(255,213,79,0.15)" stroke="#ffd54f" stroke-width="1"/>`;
+    svg += `<text x="${x}" y="${y+4}" text-anchor="middle" style="font-family:'DM Mono',monospace;font-size:9px;fill:#ffd54f">M</text>`;
+  }
 
-      const probs = currentState.map((a) => a * a);
-      const targetProb = probs[targetIdx % totalStates];
-      const maxAmp = Math.max(...currentState.map(Math.abs));
+  svg += `</svg>`;
+  document.getElementById('g-circuit').innerHTML = svg;
+}
 
-      useEffect(() => {
-        if (isPlaying) {
-          timerRef.current = setInterval(() => {
-            setCurrentStep((s) => {
-              if (s >= maxStep) {
-                setIsPlaying(false);
-                return s;
-              }
-              return s + 1;
-            });
-          }, speed);
-        }
-        return () => clearInterval(timerRef.current);
-      }, [isPlaying, speed, maxStep]);
+function gGoStep(i) {
+  gStep = i;
+  gRender();
+}
+function gNext() {
+  const steps = gBuildStepList();
+  if (gStep < steps.length-1) { gStep++; gRender(); }
+}
+function gPrev() {
+  if (gStep > 0) { gStep--; gRender(); }
+}
+function gReset() { gStep = 0; gRender(); }
+async function gRunAll() {
+  if (gRunning) return;
+  gRunning = true;
+  gStep = 0; gRender();
+  const steps = gBuildStepList();
+  for (let i = 1; i < steps.length; i++) {
+    await new Promise(r => setTimeout(r, 700));
+    gStep = i; gRender();
+  }
+  gRunning = false;
+}
 
-      const reset = useCallback(() => {
-        setIsPlaying(false);
-        setCurrentStep(0);
-      }, []);
+// ============================================================
+// SHOR'S
+// ============================================================
+function sGetData() {
+  const d = SHOR_DATA[sN];
+  return d.factors[sAIdx] || d.factors[0];
+}
 
-      const iterationNumber = Math.floor((clampedStep + 1) / 2);
+function sSetN(n) {
+  sN = n; sAIdx = 0; sStep = 0;
+  [15,21,33,35,77].forEach(x => {
+    document.getElementById('sn'+x).className = 'pill' + (x===n?' s-on':'');
+  });
+  sRebuildARow();
+  sRender();
+}
 
-      return (
-        <div style={{
-          background: COLORS.bg,
-          color: COLORS.text,
-          fontFamily: FONT_MONO,
-          minHeight: "100vh",
-          padding: "24px 20px",
-          boxSizing: "border-box",
-        }}>
-          {/* Header */}
-          <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <h1 style={{
-              fontSize: 22,
-              fontWeight: 700,
-              color: COLORS.accent,
-              letterSpacing: "0.12em",
-              margin: 0,
-              textTransform: "uppercase",
-            }}>
-              &#x27E8; Grover's Algorithm &#x27E9;
-            </h1>
-            <div style={{ fontSize: 11, color: COLORS.textDim, marginTop: 4 }}>
-              Quantum search in O(\u221AN) &mdash; interactive simulation
-            </div>
-          </div>
+function sRebuildARow() {
+  const factors = SHOR_DATA[sN].factors;
+  let html = '<span class="label">BASE a:</span>';
+  factors.forEach((f,i) => {
+    html += `<button class="pill${i===sAIdx?' s-on':''}" onclick="sSetA(${i})">a = ${f.a}</button>`;
+  });
+  document.getElementById('s-a-row').innerHTML = html;
+}
 
-          {/* Controls */}
-          <div style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 16,
-            justifyContent: "center",
-            marginBottom: 24,
-          }}>
-            {/* Qubits */}
-            <div style={controlBox}>
-              <label style={labelStyle}>Qubits (n)</label>
-              <div style={{ display: "flex", gap: 6 }}>
-                {[2, 3, 4, 5].map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => { setNQubits(q); setTargetIdx((prev) => prev % (1 << q)); reset(); }}
-                    style={{
-                      ...pillBtn,
-                      background: nQubits === q ? COLORS.accent : COLORS.surface,
-                      color: nQubits === q ? COLORS.bg : COLORS.textDim,
-                      fontWeight: nQubits === q ? 700 : 400,
-                    }}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
+function sSetA(i) {
+  sAIdx = i; sStep = 0;
+  sRebuildARow();
+  sRender();
+}
 
-            {/* Target */}
-            <div style={controlBox}>
-              <label style={labelStyle}>Target |\u03C9&#x27E9;</label>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button style={arrowBtn} onClick={() => { setTargetIdx((t) => (t - 1 + totalStates) % totalStates); reset(); }}>&#x25C2;</button>
-                <span style={{
-                  color: COLORS.target,
-                  fontWeight: 700,
-                  fontSize: 16,
-                  minWidth: 40,
-                  textAlign: "center",
-                }}>
-                  |{(targetIdx % totalStates).toString(2).padStart(nQubits, "0")}&#x27E9;
-                </span>
-                <button style={arrowBtn} onClick={() => { setTargetIdx((t) => (t + 1) % totalStates); reset(); }}>&#x25B8;</button>
-              </div>
-            </div>
+const S_STEPS = [
+  {name:'Choose a', phase:'choose'},
+  {name:'Check gcd', phase:'gcd'},
+  {name:'QFT', phase:'qft'},
+  {name:'Period r', phase:'period'},
+  {name:'Compute', phase:'compute'},
+  {name:'Factors!', phase:'factors'}
+];
 
-            {/* Speed */}
-            <div style={controlBox}>
-              <label style={labelStyle}>Speed</label>
-              <div style={{ display: "flex", gap: 6 }}>
-                {[{ l: "\u25B8", v: 1000 }, { l: "\u25B8\u25B8", v: 500 }, { l: "\u25B8\u25B8\u25B8", v: 200 }].map((s) => (
-                  <button
-                    key={s.v}
-                    onClick={() => setSpeed(s.v)}
-                    style={{
-                      ...pillBtn,
-                      background: speed === s.v ? COLORS.accentDim : COLORS.surface,
-                      color: speed === s.v ? COLORS.accent : COLORS.textDim,
-                      fontSize: 10,
-                    }}
-                  >
-                    {s.l}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+function sRender() {
+  const d = sGetData();
+  const N = sN;
 
-          {/* Playback */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-            <button
-              onClick={() => setCurrentStep((s) => Math.max(0, s - 1))}
-              disabled={clampedStep === 0}
-              style={{ ...actionBtn, opacity: clampedStep === 0 ? 0.3 : 1 }}
-            >
-              &#x27E8; Prev
-            </button>
-            <button
-              onClick={() => setIsPlaying((p) => !p)}
-              style={{ ...actionBtn, background: isPlaying ? COLORS.targetDim : COLORS.accentDim, minWidth: 100 }}
-            >
-              {isPlaying ? "\u23F8 Pause" : "\u25B6 Play"}
-            </button>
-            <button
-              onClick={() => setCurrentStep((s) => Math.min(maxStep, s + 1))}
-              disabled={clampedStep >= maxStep}
-              style={{ ...actionBtn, opacity: clampedStep >= maxStep ? 0.3 : 1 }}
-            >
-              Next &#x27E9;
-            </button>
-            <button onClick={reset} style={{ ...actionBtn, background: "#1a1a28" }}>
-              &#x21BA; Reset
-            </button>
-          </div>
+  // Stats
+  const qbits = Math.ceil(Math.log2(N)) * 2;
+  document.getElementById('s-stats').innerHTML = `
+    <div class="stat"><div class="stat-val s">${N}</div><div class="stat-lbl">FACTOR N</div></div>
+    <div class="stat"><div class="stat-val s">${d.a}</div><div class="stat-lbl">BASE a</div></div>
+    <div class="stat"><div class="stat-val gold">${d.r}</div><div class="stat-lbl">PERIOD r</div></div>
+    <div class="stat"><div class="stat-val s">${d.f1}</div><div class="stat-lbl">FACTOR 1</div></div>
+    <div class="stat"><div class="stat-val s">${d.f2}</div><div class="stat-lbl">FACTOR 2</div></div>
+    <div class="stat"><div class="stat-val" style="color:var(--muted);font-size:1.2rem">O(n³)</div><div class="stat-lbl">COMPLEXITY</div></div>
+  `;
 
-          {/* Status bar */}
-          <div style={{
-            textAlign: "center",
-            marginBottom: 20,
-            padding: "10px 16px",
-            background: COLORS.surface,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: 8,
-            maxWidth: 600,
-            margin: "0 auto 20px",
-          }}>
-            <div style={{ fontSize: 13, color: COLORS.accent, fontWeight: 600 }}>
-              {currentLabel}
-            </div>
-            <div style={{ fontSize: 11, color: COLORS.textDim, marginTop: 4 }}>
-              Step {clampedStep}/{maxStep} &middot; Iteration {iterationNumber}/{optimal} (optimal) &middot; P(target) = {(targetProb * 100).toFixed(1)}%
-            </div>
-          </div>
+  // Steps
+  let trackHtml = '';
+  S_STEPS.forEach((st, i) => {
+    const cls = i < sStep ? 'done s' : i === sStep ? 'current s' : '';
+    trackHtml += `<div class="step-node ${cls}" onclick="sGoStep(${i})">
+      <div class="step-dot">${i+1}</div>
+      <div class="step-label">${st.name}</div>
+    </div>`;
+  });
+  document.getElementById('s-steps').innerHTML = trackHtml;
 
-          {/* Amplitude chart */}
-          <div style={{
-            background: COLORS.surface,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: 10,
-            padding: "20px 16px 12px",
-            maxWidth: 700,
-            margin: "0 auto 20px",
-            overflow: "hidden",
-          }}>
-            <div style={{ fontSize: 11, color: COLORS.textDim, marginBottom: 12, textAlign: "center" }}>
-              Amplitudes &alpha;<sub>x</sub> &mdash; bar height = amplitude, opacity = probability |&alpha;|&sup2;
-            </div>
-            <div style={{ position: "relative", height: 200 }}>
-              <div style={{
-                position: "absolute",
-                top: "50%",
-                left: 0,
-                right: 0,
-                height: 1,
-                background: COLORS.grid,
-              }} />
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                height: "100%",
-                gap: totalStates > 16 ? 1 : 2,
-                padding: "0 4px",
-              }}>
-                {currentState.map((amp, i) => {
-                  const isTarget = i === (targetIdx % totalStates);
-                  const h = maxAmp > 0 ? (Math.abs(amp) / maxAmp) * 90 : 0;
-                  const prob = amp * amp;
-                  const positive = amp >= 0;
-                  return (
-                    <div
-                      key={i}
-                      style={{
-                        flex: 1,
-                        height: "100%",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        position: "relative",
-                      }}
-                    >
-                      <div style={{
-                        width: "100%",
-                        maxWidth: totalStates <= 8 ? 40 : totalStates <= 16 ? 20 : 12,
-                        height: `${h}%`,
-                        background: isTarget ? COLORS.target : (positive ? COLORS.barPos : COLORS.barNeg),
-                        opacity: 0.3 + prob * 2.5,
-                        borderRadius: 2,
-                        position: "absolute",
-                        [positive ? "bottom" : "top"]: "50%",
-                        transition: "all 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
-                        boxShadow: isTarget && prob > 0.3
-                          ? `0 0 12px ${COLORS.target}66`
-                          : prob > 0.3
-                          ? `0 0 8px ${COLORS.accent}44`
-                          : "none",
-                      }} />
-                      {totalStates <= 16 && (
-                        <div style={{
-                          position: "absolute",
-                          bottom: -2,
-                          fontSize: totalStates <= 8 ? 9 : 7,
-                          color: isTarget ? COLORS.target : COLORS.textDim,
-                          fontWeight: isTarget ? 700 : 400,
-                          transform: "translateY(100%)",
-                        }}>
-                          |{i.toString(2).padStart(nQubits, "0")}&#x27E9;
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+  // Main content
+  const phase = S_STEPS[sStep].phase;
+  let content = '', desc = '';
+  const g = gcd(d.a, N);
 
-          {/* Probability meter */}
-          <div style={{
-            maxWidth: 700,
-            margin: "0 auto 20px",
-            background: COLORS.surface,
-            border: `1px solid ${COLORS.border}`,
-            borderRadius: 10,
-            padding: "14px 16px",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 6 }}>
-              <span style={{ color: COLORS.textDim }}>P(|\u03C9&#x27E9;) measurement probability</span>
-              <span style={{ color: COLORS.target, fontWeight: 700 }}>{(targetProb * 100).toFixed(2)}%</span>
-            </div>
-            <div style={{
-              height: 10,
-              background: COLORS.grid,
-              borderRadius: 5,
-              overflow: "hidden",
-              position: "relative",
-            }}>
-              <div style={{
-                height: "100%",
-                width: `${targetProb * 100}%`,
-                background: `linear-gradient(90deg, ${COLORS.targetDim}, ${COLORS.target})`,
-                borderRadius: 5,
-                transition: "width 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
-                boxShadow: targetProb > 0.5 ? `0 0 12px ${COLORS.target}88` : "none",
-              }} />
-            </div>
-          </div>
+  if (phase === 'choose') {
+    content = `<div style="text-align:center;padding:24px 0;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:4rem;color:var(--s-accent);letter-spacing:4px;">a = ${d.a}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);margin-top:8px;">randomly chosen base, 1 < a < N</div>
+    </div>`;
+    desc = `Randomly select a base a = ${d.a} such that 1 < a < N = ${N}. This base will be used to define the periodic function f(x) = ${d.a}ˣ mod ${N}.`;
 
-          {/* Info panel */}
-          <div style={{
-            maxWidth: 700,
-            margin: "0 auto",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            gap: 10,
-          }}>
-            {[
-              { label: "Search Space", value: `N = ${totalStates}`, sub: `2^${nQubits} states` },
-              { label: "Optimal Iterations", value: `\u230A\u03C0/4\u00B7\u221A${totalStates}\u230B = ${optimal}`, sub: "O(\u221AN)" },
-              { label: "Classical Comparison", value: `~${totalStates / 2}`, sub: "O(N) avg queries" },
-            ].map((item, i) => (
-              <div key={i} style={{
-                background: COLORS.surface,
-                border: `1px solid ${COLORS.border}`,
-                borderRadius: 8,
-                padding: "10px 12px",
-                textAlign: "center",
-              }}>
-                <div style={{ fontSize: 9, color: COLORS.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                  {item.label}
-                </div>
-                <div style={{ fontSize: 15, color: COLORS.accent, fontWeight: 700, margin: "4px 0 2px" }}>
-                  {item.value}
-                </div>
-                <div style={{ fontSize: 9, color: COLORS.textDim }}>{item.sub}</div>
-              </div>
-            ))}
-          </div>
+  } else if (phase === 'gcd') {
+    const g2 = gcd(d.a, N);
+    content = `<div style="text-align:center;padding:20px 0;">
+      <div style="font-family:'DM Mono',monospace;font-size:1.2rem;color:var(--text);margin-bottom:12px;">gcd(${d.a}, ${N}) = <span style="color:var(--gold)">${g2}</span></div>
+      ${g2===1 ? `<div class="result-badge badge-g">✓ Coprime — continue to quantum phase</div>` : `<div class="result-badge badge-s">Factor found classically: ${g2}</div>`}
+    </div>`;
+    desc = g2 === 1
+      ? `gcd(${d.a}, ${N}) = 1 — the base is coprime to N. We must proceed to the quantum period-finding subroutine.`
+      : `gcd(${d.a}, ${N}) = ${g2} ≠ 1 — we got lucky! ${g2} is a non-trivial factor of ${N} = ${g2} × ${N/g2}, found classically without any quantum computation.`;
 
-          {/* Legend */}
-          <div style={{
-            maxWidth: 700,
-            margin: "16px auto 0",
-            fontSize: 10,
-            color: COLORS.textDim,
-            textAlign: "center",
-            lineHeight: 1.6,
-          }}>
-            <span style={{ color: COLORS.accent }}>&&#x25A0;</span> positive amplitude{" "}
-            <span style={{ color: COLORS.barNeg }}>&&#x25A0;</span> negative amplitude{" "}
-            <span style={{ color: COLORS.target }}>&&#x25A0;</span> target state |\u03C9&#x27E9;
-          </div>
-        </div>
-      );
-    }
+  } else if (phase === 'qft') {
+    const qbits2 = Math.ceil(Math.log2(N));
+    content = sDrawQFT(d.a, N, qbits2);
+    desc = `The quantum computer runs f(x) = ${d.a}ˣ mod ${N} in superposition across all x simultaneously, then applies the Quantum Fourier Transform (QFT) to extract the period. The register uses ${qbits2*2} qubits — ${qbits2} for the input register and ${qbits2} for the function output.`;
 
-    const root = ReactDOM.createRoot(document.getElementById("root"));
-    root.render(<GroversSimulation />);
-  </script>
+  } else if (phase === 'period') {
+    content = sDrawPeriodTable(d.a, N, d.r);
+    desc = `The QFT measurement reveals r = ${d.r} — the period of the function f(x) = ${d.a}ˣ mod ${N}. This means ${d.a}^${d.r} mod ${N} = ${Math.pow(d.a, d.r) % N} ≡ 1 (mod ${N}). The highlighted column shows one period. Classically finding this period would take O(e^(n^(1/3))) time.`;
+
+  } else if (phase === 'compute') {
+    const half = d.r / 2;
+    const pow = Math.round(Math.pow(d.a, half)) % N;
+    const g1 = gcd(pow - 1 + N, N);
+    const g2b = gcd(pow + 1, N);
+    content = `<div style="font-family:'DM Mono',monospace;font-size:12px;line-height:2.2;">
+      <div style="color:var(--muted)">Period r = ${d.r} is <span style="color:var(--gold)">${d.r%2===0?'even ✓':'odd ✗'}</span></div>
+      <div>a^(r/2) = ${d.a}^${half} mod ${N} = <span style="color:var(--s-accent)">${pow}</span></div>
+      <div style="margin-top:8px;padding:10px;background:var(--faint);border-radius:8px;">
+        gcd(${pow}–1, ${N}) = gcd(${pow-1}, ${N}) = <span style="color:var(--g-accent)">${g1}</span><br>
+        gcd(${pow}+1, ${N}) = gcd(${pow+1}, ${N}) = <span style="color:var(--g-accent)">${g2b}</span>
+      </div>
+    </div>`;
+    desc = `Since r = ${d.r} is even, we compute a^(r/2) = ${d.a}^${half} = ${pow} (mod ${N}). Then take gcd(${pow}±1, ${N}) to extract the prime factors.`;
+
+  } else if (phase === 'factors') {
+    content = `<div style="text-align:center;padding:28px 0;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:5rem;letter-spacing:6px;background:linear-gradient(135deg,var(--s-accent),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">${N} = ${d.f1} × ${d.f2}</div>
+      <div style="margin-top:16px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <div class="result-badge badge-s">p = ${d.f1} (prime)</div>
+        <div class="result-badge badge-s">q = ${d.f2} (prime)</div>
+        <div class="result-badge badge-gold">Factored!</div>
+      </div>
+      <div style="margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)">
+        Classical complexity for ${N}: O(e^(${Math.ceil(Math.log2(N))}^(1/3))) &nbsp;|&nbsp; Shor's: O(${Math.ceil(Math.log2(N))}³) = O(${Math.ceil(Math.log2(N))**3})
+      </div>
+    </div>`;
+    desc = `${N} = ${d.f1} × ${d.f2}. The quantum algorithm found the prime factorization using period r = ${d.r} and base a = ${d.a}. For a 2048-bit RSA key (617 digits), a quantum computer running Shor's would finish in hours while classical methods would take longer than the age of the universe.`;
+  }
+
+  document.getElementById('s-content').innerHTML = content;
+  document.getElementById('s-desc').textContent = desc;
+}
+
+function sDrawQFT(a, N, qbits) {
+  const W = Math.min(720, window.innerWidth - 60);
+  const rows = qbits * 2;
+  const H = rows * 30 + 30;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <style>.ql2{font-family:'DM Mono',monospace;font-size:10px;fill:#64748b}</style>`;
+
+  const leftPad = 50, cols = 6, colW = (W - leftPad - 20) / cols;
+
+  // Wires
+  for (let q = 0; q < rows; q++) {
+    const y = 18 + q * 30;
+    const label = q < qbits ? `x${q}` : `f${q-qbits}`;
+    svg += `<line x1="${leftPad}" y1="${y}" x2="${W-15}" y2="${y}" stroke="#1e2d4a" stroke-width="1.5"/>`;
+    svg += `<text x="4" y="${y+4}" class="ql2">${label}</text>`;
+  }
+
+  // |0⟩ → H
+  for (let q = 0; q < qbits; q++) {
+    const y = 18 + q * 30;
+    const x = leftPad + colW * 0.5;
+    svg += `<rect x="${x-12}" y="${y-11}" width="24" height="20" rx="3" fill="rgba(0,229,255,0.15)" stroke="#00e5ff" stroke-width="1"/>`;
+    svg += `<text x="${x}" y="${y+3}" text-anchor="middle" style="font-family:'DM Mono',monospace;font-size:10px;fill:#00e5ff">H</text>`;
+  }
+
+  // Uf box
+  const ufY0 = 18, ufY1 = 18 + (rows-1)*30;
+  const ufX = leftPad + colW * 1.5;
+  svg += `<rect x="${ufX-22}" y="${ufY0-11}" width="44" height="${ufY1-ufY0+22}" rx="6" fill="rgba(255,107,107,0.12)" stroke="#ff6b6b" stroke-width="1.5"/>`;
+  svg += `<text x="${ufX}" y="${(ufY0+ufY1)/2+4}" text-anchor="middle" style="font-family:'DM Mono',monospace;font-size:11px;fill:#ff6b6b">U_f</text>`;
+
+  // QFT box on top register
+  const qftY0 = 18, qftY1 = 18 + (qbits-1)*30;
+  const qftX = leftPad + colW * 2.8;
+  svg += `<rect x="${qftX-20}" y="${qftY0-11}" width="40" height="${qftY1-qftY0+22}" rx="6" fill="rgba(0,229,255,0.1)" stroke="#00e5ff" stroke-width="1.5" stroke-dasharray="4,2"/>`;
+  svg += `<text x="${qftX}" y="${(qftY0+qftY1)/2+4}" text-anchor="middle" style="font-family:'DM Mono',monospace;font-size:10px;fill:#00e5ff">QFT</text>`;
+
+  // Measure top register
+  for (let q = 0; q < qbits; q++) {
+    const y = 18 + q * 30;
+    const x = leftPad + colW * 4.2;
+    svg += `<rect x="${x-14}" y="${y-11}" width="28" height="20" rx="3" fill="rgba(255,213,79,0.12)" stroke="#ffd54f" stroke-width="1"/>`;
+    svg += `<text x="${x}" y="${y+3}" text-anchor="middle" style="font-family:'DM Mono',monospace;font-size:9px;fill:#ffd54f">M</text>`;
+  }
+
+  svg += `</svg>`;
+  return `<div class="circuit">${svg}</div>`;
+}
+
+function sDrawPeriodTable(a, N, r) {
+  const rows = Math.min(r * 2 + 1, 24);
+  let html = `<div style="overflow-x:auto"><table class="shor-table"><thead><tr>
+    <th>x</th><th>${a}^x mod ${N}</th><th>= 1 mod N?</th>
+  </tr></thead><tbody>`;
+  for (let x = 0; x < rows; x++) {
+    const val = modpow(a, x, N);
+    const isOne = val === 1 && x > 0;
+    const isPeriodStart = x > 0 && x % r === 0;
+    html += `<tr${isPeriodStart?' class="highlighted"':''}>
+      <td>${x}</td>
+      <td class="${isPeriodStart?'accent-s':''}">${val}</td>
+      <td>${isOne?`<span style="color:var(--gold)">✓ r = ${x}</span>`:''}</td>
+    </tr>`;
+  }
+  html += `</tbody></table></div>`;
+  return html;
+}
+
+function modpow(base, exp, mod) {
+  let result = 1; base = base % mod;
+  while (exp > 0) {
+    if (exp % 2 === 1) result = (result * base) % mod;
+    exp = Math.floor(exp / 2);
+    base = (base * base) % mod;
+  }
+  return result;
+}
+
+function sGoStep(i) { sStep = i; sRender(); }
+function sNext() { if (sStep < S_STEPS.length-1) { sStep++; sRender(); } }
+function sPrev() { if (sStep > 0) { sStep--; sRender(); } }
+function sReset() { sStep = 0; sRender(); }
+async function sRunAll() {
+  if (sRunning) return;
+  sRunning = true;
+  sStep = 0; sRender();
+  for (let i = 1; i < S_STEPS.length; i++) {
+    await new Promise(r => setTimeout(r, 900));
+    sStep = i; sRender();
+  }
+  sRunning = false;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+gBuildTargetRow();
+gRender();
+sRebuildARow();
+sRender();
+</script>
 </body>
 </html>
